@@ -1,0 +1,54 @@
+@startuml
+skinparam packageStyle rectangle
+left to right direction
+
+title SplitSmart Layered Architecture
+
+package "Web Presentation" {
+  [Web UI]
+  [Controllers / DTOs]
+}
+
+package "Application Services" {
+  [Account Use Cases]
+  [Group Use Cases]
+  [Expense / Approval Use Cases]
+  [Payment / Reporting Use Cases]
+}
+
+package "Domain" {
+  [User / Group / Membership]
+  [Expense / Split / Receipt]
+  [Approval / Payment / Reconciliation]
+  [Balance / Ledger Rules]
+}
+
+package "Infrastructure" {
+  [Relational Repository]
+  [Auth / Password Service]
+  [Notification Port]
+  [Receipt Storage Port]
+  [Audit Log Port]
+}
+
+package "Academic Desktop Adapter" {
+  [Swing MVP UI]
+}
+
+[Web UI] --> [Controllers / DTOs]
+[Controllers / DTOs] --> [Account Use Cases]
+[Account Use Cases] --> [User / Group / Membership]
+[Group Use Cases] --> [User / Group / Membership]
+[Expense / Approval Use Cases] --> [Expense / Split / Receipt]
+[Expense / Approval Use Cases] --> [Approval / Payment / Reconciliation]
+[Payment / Reporting Use Cases] --> [Balance / Ledger Rules]
+[Relational Repository] ..> [Account Use Cases]
+[Relational Repository] ..> [Expense / Approval Use Cases]
+[Auth / Password Service] ..> [Account Use Cases]
+[Notification Port] ..> [Expense / Approval Use Cases]
+[Receipt Storage Port] ..> [Expense / Approval Use Cases]
+[Audit Log Port] ..> [Payment / Reporting Use Cases]
+[Swing MVP UI] --> [Account Use Cases]
+[Swing MVP UI] --> [Group Use Cases]
+[Swing MVP UI] --> [Expense / Approval Use Cases]
+@enduml

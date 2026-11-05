@@ -1,0 +1,93 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide circle
+
+class User {
+  id
+  username
+  email
+  passwordHash
+}
+
+class Group {
+  id
+  name
+}
+
+class GroupMembership {
+  id
+  status
+  role
+}
+
+class Expense {
+  id
+  amount: BigDecimal
+  date
+  description
+  splitMethod
+  status
+}
+
+class ExpenseSplit {
+  id
+  shareAmount: BigDecimal
+  percentage: BigDecimal
+  isResidualRecipient
+}
+
+class Receipt {
+  id
+  storageKey
+  mimeType
+}
+
+class ApprovalRecord {
+  id
+  decision
+  reviewedAt
+}
+
+class Notification {
+  id
+  type
+  status
+  createdAt
+}
+
+class Payment {
+  id
+  amount: BigDecimal
+  recordedAt
+  status
+}
+
+class Reconciliation {
+  id
+  settlementAmount: BigDecimal
+  confirmedAt
+}
+
+class AuditEvent {
+  id
+  action
+  occurredAt
+}
+
+User "1" --> "*" GroupMembership
+Group "1" --> "*" GroupMembership
+User "1" --> "*" Notification
+Group "1" --> "*" Expense
+Expense "1" --> "*" ExpenseSplit
+Expense "1" --> "0..1" Receipt
+Expense "1" --> "*" ApprovalRecord
+Group "1" --> "*" Payment
+Payment "1" --> "0..1" Reconciliation
+User "1" --> "*" AuditEvent
+
+note bottom of Payment
+  Recorded payment stays in history,
+  but balance remains active until
+  reconciliation confirms settlement.
+end note
+@enduml

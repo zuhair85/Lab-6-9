@@ -1,0 +1,31 @@
+﻿@startuml
+package "Presentation adapters" {
+  [Web UI - target]
+  [Swing UI - academic subset]
+}
+package "Application" {
+  [Identity / Group use cases]
+  [Expense / Approval use cases]
+  [Payment / Report use cases]
+}
+package "Domain" {
+  [Accounts and Membership]
+  [Expense and Shares]
+  [Obligations and Reconciliation]
+}
+package "Infrastructure adapters" {
+  [Relational repositories]
+  [Password hash port]
+  [Receipt store port]
+  [In-app notification port]
+}
+[Web UI - target] --> [Identity / Group use cases]
+[Swing UI - academic subset] --> [Identity / Group use cases]
+[Identity / Group use cases] --> [Accounts and Membership]
+[Expense / Approval use cases] --> [Expense and Shares]
+[Payment / Report use cases] --> [Obligations and Reconciliation]
+[Relational repositories] ..> [Expense / Approval use cases] : implements ports
+[Password hash port] ..> [Identity / Group use cases]
+[Receipt store port] ..> [Expense / Approval use cases]
+[In-app notification port] ..> [Expense / Approval use cases]
+@enduml

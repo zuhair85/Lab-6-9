@@ -1,0 +1,21 @@
+﻿@startuml
+actor Creator
+participant "Expense Application" as App
+participant "Domain Rules" as Domain
+participant "Repository / Tx" as DB
+participant "Notification" as Notice
+Creator -> App: submit expense details
+App -> Domain: validate membership, split, shares
+Domain --> App: immutable share snapshot / errors
+App -> DB: save SUBMITTED + shares + audit
+App -> Notice: persist in-app review notices
+App --> Creator: submitted
+Creator -> App: approve/reject (authorized reviewer)
+App -> DB: version check + decision + audit
+alt approved
+  App -> DB: activate obligations atomically
+else rejected
+  App -> DB: retain rejected state; no balance effect
+end
+App --> Creator: resulting state
+@enduml

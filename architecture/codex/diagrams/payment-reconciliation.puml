@@ -1,0 +1,19 @@
+﻿@startuml
+[*] --> RECORDED
+RECORDED --> PENDING_CONFIRMATION : persist payment + audit
+PENDING_CONFIRMATION --> RECONCILED : authorized allocation confirmed
+PENDING_CONFIRMATION --> DISPUTED : dispute recorded
+PENDING_CONFIRMATION --> VOIDED : audited void
+DISPUTED --> RECONCILED : resolved and confirmed
+DISPUTED --> VOIDED : resolution voids payment
+RECONCILED --> [*]
+VOIDED --> [*]
+note right of PENDING_CONFIRMATION
+  Payment remains in history;
+  effective balance unchanged.
+end note
+note right of RECONCILED
+  Apply confirmed allocations;
+  effective balance changes atomically.
+end note
+@enduml

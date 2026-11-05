@@ -1,0 +1,27 @@
+﻿@startuml
+class User { id; normalizedIdentity; passwordHash }
+class Group { id; name; version }
+class Membership { status; role }
+class Expense { id; amount: BigDecimal; currency; payerId; status; splitMethod }
+class Share { participantId; amount: BigDecimal; percentage }
+class Approval { reviewerId; decision; version; decidedAt }
+class Receipt { storageKey; mediaType; contentHash }
+class Payment { id; amount: BigDecimal; status }
+class Allocation { amount: BigDecimal }
+class Obligation { debtorId; creditorId; amount: BigDecimal }
+class Notification { recipientId; eventType; readAt }
+class AuditEvent { actorId; action; occurredAt }
+User "1" -- "*" Membership
+Group "1" -- "*" Membership
+Group "1" -- "*" Expense
+Expense "1" -- "*" Share
+Expense "1" -- "*" Approval
+Expense "1" -- "0..1" Receipt
+Expense "1" -- "*" Obligation
+Payment "1" -- "*" Allocation
+Allocation "*" -- "1" Obligation
+Group "1" -- "*" Payment
+User "1" -- "*" Notification
+note right of Payment : Recorded/pending does not affect balances.
+Reconciled allocations do.
+@enduml

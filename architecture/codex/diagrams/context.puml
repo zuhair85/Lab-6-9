@@ -1,0 +1,24 @@
+﻿@startuml
+left to right direction
+actor "Account holder" as User
+actor "Reviewer / group admin" as Reviewer
+rectangle "SplitSmart system" {
+  usecase "Manage account and groups" as Groups
+  usecase "Submit and review expense" as Expense
+  usecase "View balances and reports" as Reports
+  usecase "Record and reconcile payment" as Payment
+  usecase "Receive in-app notification" as Notice
+}
+User --> Groups
+User --> Expense
+User --> Reports
+User --> Payment
+User --> Notice
+Reviewer --> Expense
+Reviewer --> Payment
+note bottom of "SplitSmart system"
+  Browser-based delivery is customer target (RI-010).
+  Swing is an academic subset only.
+  External services are not assumed.
+end note
+@enduml

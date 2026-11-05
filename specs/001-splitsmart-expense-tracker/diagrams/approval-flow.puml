@@ -1,0 +1,31 @@
+@startuml
+start
+:Create expense;
+:Validate amount and participants;
+if (Participants confirmed group members?) then (yes)
+  :Calculate split;
+  if (Split method valid?) then (yes)
+    :Attach receipt if present;
+    :Submit for approval;
+    if (Approval required for group?) then (yes)
+      :Create notification;
+      :Await reviewer decision;
+      if (Approved?) then (yes)
+        :Mark expense balance-effective;
+        :Update balances;
+      else (no)
+        :Mark rejected;
+        :Do not affect balances;
+      endif
+    else (no)
+      :Mark expense balance-effective;
+      :Update balances;
+    endif
+  else (no)
+    :Reject with validation message;
+  endif
+else (no)
+  :Reject with membership validation error;
+endif
+stop
+@enduml
