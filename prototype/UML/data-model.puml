@@ -1,0 +1,55 @@
+@startuml
+title SplitSmart Data Model
+skinparam classAttributeIconSize 0
+hide circle
+
+class SplitGroup {
+  id: Int
+  name: String
+  createdAt: DateTime
+}
+
+class SplitMember {
+  id: Int
+  groupId: Int
+  name: String
+  createdAt: DateTime
+}
+
+class SplitExpense {
+  id: Int
+  groupId: Int
+  payerId: Int
+  description: String
+  amountCents: Int
+  createdAt: DateTime
+}
+
+class SplitShare {
+  id: Int
+  expenseId: Int
+  memberId: Int
+  amountCents: Int
+}
+
+SplitGroup "1" *-- "0..*" SplitMember : members
+SplitGroup "1" *-- "0..*" SplitExpense : expenses
+SplitMember "1" <-- "0..*" SplitExpense : payer
+SplitExpense "1" *-- "1..*" SplitShare : participant shares
+SplitMember "1" <-- "0..*" SplitShare : participant
+
+note right of SplitShare
+  One share per participant per expense.
+  amountCents values sum to the expense total.
+end note
+
+note bottom of SplitMember
+  Member names are unique within each group.
+  Every payer and participant belongs to that group.
+end note
+
+note bottom of SplitExpense
+  Persisted amount is integer cents;
+  the payer can also be a participant.
+end note
+@enduml

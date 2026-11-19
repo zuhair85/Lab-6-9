@@ -1,0 +1,50 @@
+@startuml
+title Record Expense and Refresh Balances
+autonumber
+
+actor Member
+participant "SplitSmart dashboard" as UI
+participant "Expenses API route" as API
+participant "Prisma Client" as Prisma
+database "SQLite" as DB
+
+Member -> UI : Enter description, amount, payer, participants
+UI -> API : POST /api/groups/{groupId}/expenses
+API -> API : Validate amount, description, IDs, and participants
+
+alt Invalid input or group membership
+  API --> UI : 400 error with explanation
+  UI --> Member : Display error
+else Valid expense
+  API -> Prisma : Find payer and participants in group
+  Prisma -> DB : Query SplitSmartMember
+  DB --> Prisma : Matching members
+  Prisma --> API : Member IDs
+  API -> API : Sort participant IDs
+  API -> API : Divide cents evenly; assign remainder in ID order
+  API -> Prisma : Create expense and participant shares
+  Prisma -> DB : Insert SplitSmartExpense + SplitSmartShare rows
+  DB --> Prisma : Stored expense and shares
+  Prisma --> API : Created record
+  API --> UI : 201 expense with shares
+  UI -> API : GET /api/groups/{groupId}
+  API -> Prisma : Load members, expenses, payers, and shares
+  Prisma -> DB : Query SplitSmart tables
+  DB --> Prisma : Group ledger
+  Prisma --> API : Group detail
+  API --> UI : 200 group detail
+  UI -> UI : For each member, add paid cents and subtract share cents
+  UI --> Member : Show history and balances
+end
+
+note over API
+  For n participants:
+  base share = floor(amountCents / n)
+  remainder = amountCents mod n
+  The first remainder participants by ID receive one extra cent.
+end note
+
+note over UI
+  Each expense's shares equal its total, so member balances sum to zero.
+end note
+@enduml

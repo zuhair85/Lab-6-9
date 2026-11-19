@@ -1,24 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## SplitSmart
 
-## Getting Started
+SplitSmart is a local shared-expense tracker built with the existing Next.js, TypeScript, and Prisma setup. Groups, members, expenses, and equal participant shares are stored in SQLite; money is stored as integer cents.
 
-First, run the development server:
+## Run locally
+
+From the repository root:
 
 ```bash
+cd prototype
+npm install
+cp .env.example .env
+npx prisma db push
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The configured SQLite database is `prototype/prisma/dev.db`. Existing Lab 8 tables and records are retained; SplitSmart uses separate `SplitSmart*` tables in the same database.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verify
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npm run build
+```
+
+Create a group, add members, and record an expense with the payer and participants selected. The group selection is remembered in the browser, and all ledger data persists in SQLite.
+
+## Getting Started
 
 ## Learn More
 
@@ -28,9 +35,3 @@ To learn more about Next.js, take a look at the following resources:
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

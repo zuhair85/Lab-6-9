@@ -1,0 +1,48 @@
+@startuml
+title SplitSmart Application Architecture
+left to right direction
+skinparam componentStyle rectangle
+
+actor Member
+
+package "Browser" {
+  [SplitSmart dashboard] as UI
+  [Selected group preference\n(localStorage)] as Preference
+  [Balance projection] as Balance
+}
+
+package "Next.js application" {
+  package "Route handlers" {
+    [Groups API\nGET / POST] as GroupsAPI
+    [Group detail API\nGET] as DetailAPI
+    [Members API\nPOST] as MembersAPI
+    [Expenses API\nPOST + validation + split] as ExpensesAPI
+  }
+  [Prisma Client] as Prisma
+}
+
+database "SQLite\nprototype/prisma/dev.db" as DB
+
+Member --> UI : manage groups and expenses
+UI --> Preference : remember selected group
+UI --> GroupsAPI : list / create groups
+UI --> DetailAPI : load group and ledger
+UI --> MembersAPI : add member
+UI --> ExpensesAPI : record expense
+DetailAPI --> Prisma
+GroupsAPI --> Prisma
+MembersAPI --> Prisma
+ExpensesAPI --> Prisma
+Prisma --> DB : read / write SplitSmart tables
+UI --> Balance : sum payer amounts - shares
+
+note right of DB
+  SplitSmart uses dedicated tables:
+  SplitSmartGroup
+  SplitSmartMember
+  SplitSmartExpense
+  SplitSmartShare
+
+  Existing Lab 8 tables remain separate.
+end note
+@enduml

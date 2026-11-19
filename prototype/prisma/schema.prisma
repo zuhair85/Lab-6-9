@@ -7,8 +7,140 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model EnvironmentCheck {
-  id        Int      @id @default(autoincrement())
-  message   String
-  createdAt DateTime @default(now())
+model SplitGroup {
+  id        Int       @id @default(autoincrement())
+  name      String
+  createdAt DateTime  @default(now())
+  members   SplitMember[]
+  expenses  SplitExpense[]
+
+  @@map("SplitSmartGroup")
+}
+
+model SplitMember {
+  id           Int            @id @default(autoincrement())
+  groupId      Int
+  name         String
+  createdAt    DateTime       @default(now())
+  group        SplitGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  paidExpenses SplitExpense[] @relation("SplitExpensePayer")
+  shares       SplitShare[]
+
+  @@unique([groupId, name], map: "SplitSmartMember_groupId_name_key")
+  @@map("SplitSmartMember")
+}
+
+model SplitExpense {
+  id          Int            @id @default(autoincrement())
+  groupId     Int
+  payerId     Int
+  description String
+  amountCents Int
+  createdAt   DateTime       @default(now())
+  group       SplitGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  payer       SplitMember   @relation("SplitExpensePayer", fields: [payerId], references: [id], onDelete: Restrict)
+  shares      SplitShare[]
+
+  @@map("SplitSmartExpense")
+}
+
+model SplitShare {
+  id          Int     @id @default(autoincrement())
+  expenseId   Int
+  memberId    Int
+  amountCents Int
+  expense     SplitExpense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member      SplitMember  @relation(fields: [memberId], references: [id], onDelete: Restrict)
+
+  @@unique([expenseId, memberId], map: "SplitSmartShare_expenseId_memberId_key")
+  @@map("SplitSmartShare")
+}
+
+model LegacyGroup {
+  id          String           @id
+  name        String
+  emoji       String           @default("🏡")
+  accent      String           @default("mint")
+  createdAt   DateTime         @default(now())
+  memberships LegacyMembership[]
+  expenses    LegacyExpense[]
+  payments    LegacyPayment[]
+
+  @@map("Group")
+}
+
+model LegacyUser {
+  id             String            @id
+  name           String
+  email          String            @unique(map: "User_email_key")
+  initials       String
+  color          String            @default("mint")
+  createdAt      DateTime          @default(now())
+  memberships    LegacyMembership[]
+  paidExpenses   LegacyExpense[]   @relation("LegacyExpensePayer")
+  shares         LegacyExpenseShare[]
+  sentPayments   LegacyPayment[]   @relation("LegacyPaymentPayer")
+  receivedPayments LegacyPayment[] @relation("LegacyPaymentPayee")
+
+  @@map("User")
+}
+
+model LegacyMembership {
+  id        String     @id
+  userId    String
+  groupId   String
+  role      String     @default("member")
+  createdAt DateTime   @default(now())
+  user      LegacyUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     LegacyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId], map: "Membership_userId_groupId_key")
+  @@map("Membership")
+}
+
+model LegacyExpense {
+  id          String              @id
+  groupId     String
+  payerId     String
+  description String
+  amountCents Int
+  date        DateTime
+  splitType   String
+  status      String              @default("APPROVED")
+  note        String?
+  createdAt   DateTime            @default(now())
+  group       LegacyGroup         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  payer       LegacyUser          @relation("LegacyExpensePayer", fields: [payerId], references: [id], onDelete: Restrict)
+  shares      LegacyExpenseShare[]
+
+  @@map("Expense")
+}
+
+model LegacyExpenseShare {
+  id          String       @id
+  expenseId   String
+  userId      String
+  amountCents Int
+  percentage  Float?
+  expense     LegacyExpense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user        LegacyUser    @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([expenseId, userId], map: "ExpenseShare_expenseId_userId_key")
+  @@map("ExpenseShare")
+}
+
+model LegacyPayment {
+  id          String     @id
+  groupId     String
+  payerId     String
+  payeeId     String
+  amountCents Int
+  date        DateTime
+  note        String?
+  createdAt   DateTime   @default(now())
+  group       LegacyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  payer       LegacyUser @relation("LegacyPaymentPayer", fields: [payerId], references: [id], onDelete: Restrict)
+  payee       LegacyUser @relation("LegacyPaymentPayee", fields: [payeeId], references: [id], onDelete: Restrict)
+
+  @@map("Payment")
 }
