@@ -1,103 +1,153 @@
-import Image from "next/image";
+"use client";
+
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+
+type Person = { id: string; name: string; initials: string; color: string };
+type Balance = { from: Person; to: Person; amountCents: number };
+type Expense = { id: string; description: string; amountCents: number; date: string; status: string; splitType: string; payer: Person; shares?: { user: Person; amountCents: number }[]; group?: { name: string; emoji: string } };
+type Payment = { id: string; note: string | null; amountCents: number; date: string; payer: Person; payee: Person; group?: { name: string; emoji?: string } };
+type Group = { id: string; name: string; emoji: string; accent: string; members: Person[]; balances: Balance[]; myOwed: number; myOwing: number; expenses: Expense[]; payments: Payment[] };
+type Activity = { id: string; kind: string; description: string; amountCents: number; date: string; groupName: string; groupEmoji: string; person: Person; status: string };
+type Snapshot = { me: Person; users: Person[]; groups: Group[]; activities: Activity[]; pending: Expense[]; report: { expenses: Expense[]; payments: Payment[]; totalExpensesCents: number; totalPaymentsCents: number; count: number } };
+type Modal = { kind: "expense" } | { kind: "payment"; groupId?: string } | { kind: "review"; expense: Expense } | null;
+type Tab = "overview" | "groups" | "activity" | "reports";
+
+const money = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+const shortDate = (value: string | Date) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
+const today = () => new Date().toISOString().slice(0, 10);
+const displayError = (error: unknown) => error instanceof Error ? error.message : "Something went wrong. Please try again.";
+
+async function send(action: string, data: Record<string, unknown>) {
+  const response = await fetch("/api/dashboard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...data }) });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "Could not save your changes.");
+}
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [modal, setModal] = useState<Modal>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [start, setStart] = useState("2026-11-01");
+  const [end, setEnd] = useState("2026-11-30");
+  const [reportFilter, setReportFilter] = useState({ start: "2026-11-01", end: "2026-11-30" });
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+  const refresh = useCallback(async () => {
+    setError("");
+    try {
+      const response = await fetch(`/api/dashboard?start=${reportFilter.start}&end=${reportFilter.end}`, { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Could not load the dashboard.");
+      setSnapshot(data);
+    } catch (reason) { setError(displayError(reason)); }
+    finally { setLoading(false); }
+  }, [reportFilter]);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  const chosenGroup = useMemo(() => snapshot?.groups.find((group) => group.id === selectedGroup) ?? null, [snapshot, selectedGroup]);
+  const submit = async (action: string, data: Record<string, unknown>) => {
+    setBusy(true);
+    try { await send(action, data); setModal(null); await refresh(); }
+    catch (reason) { setError(displayError(reason)); }
+    finally { setBusy(false); }
+  };
+  const review = async (expenseId: string, status: string) => submit("review", { expenseId, status });
+  const title = activeTab === "overview" ? "Good morning, Alex" : activeTab === "groups" ? "Your groups" : activeTab === "activity" ? "Recent activity" : "Your reports";
+  const description = activeTab === "overview" ? "Here’s your shared spending at a glance." : activeTab === "groups" ? "All the people and plans you share expenses with." : activeTab === "activity" ? "A little transparency goes a long way." : "A clear view of where your money goes.";
+
+  return <main className="app-shell">
+    <aside className="sidebar">
+      <a className="brand" href="#overview" onClick={() => { setActiveTab("overview"); setSelectedGroup(null); }}><span className="brand-mark">s</span><span>splitsmart<span className="brand-period">.</span></span></a>
+      <div className="workspace-label">WORKSPACE</div>
+      <nav className="side-nav" aria-label="Main navigation">
+        <NavItem icon="⌂" label="Overview" active={activeTab === "overview" && !selectedGroup} onClick={() => { setActiveTab("overview"); setSelectedGroup(null); }} />
+        <NavItem icon="◫" label="Groups" active={activeTab === "groups" && !selectedGroup} onClick={() => { setActiveTab("groups"); setSelectedGroup(null); }} />
+        <NavItem icon="↗" label="Activity" active={activeTab === "activity"} onClick={() => { setActiveTab("activity"); setSelectedGroup(null); }} />
+        <NavItem icon="▤" label="Reports" active={activeTab === "reports"} onClick={() => { setActiveTab("reports"); setSelectedGroup(null); }} />
+      </nav>
+      <div className="sidebar-section"><div className="section-heading"><span>YOUR GROUPS</span><span className="section-count">{snapshot?.groups.length ?? "–"}</span></div>
+        {snapshot?.groups.map((group) => <button className={`group-link ${selectedGroup === group.id ? "selected" : ""}`} key={group.id} onClick={() => { setSelectedGroup(group.id); setActiveTab("groups"); }}><span className={`mini-emoji ${group.accent}`}>{group.emoji}</span><span className="group-link-name">{group.name}</span></button>)}
+        {!snapshot && <div className="skeleton-line" />}
+      </div>
+      <div className="sidebar-bottom"><div className="prototype-note"><span className="sparkle">✦</span><div><strong>Just for the demo</strong><p>Payments are recorded here, not sent to a bank.</p></div></div><div className="profile"><Avatar person={snapshot?.me} /><div className="profile-copy"><strong>{snapshot?.me.name ?? "Loading…"}</strong><span>Demo account</span></div><span className="profile-more">···</span></div></div>
+    </aside>
+
+    <section className="main-area">
+      <header className="topbar"><div className="mobile-brand"><span className="brand-mark">s</span> splitsmart<span className="brand-period">.</span></div><div className="breadcrumb"><span>Workspace</span><span className="crumb-slash">/</span><strong>{chosenGroup?.name ?? (activeTab === "overview" ? "Overview" : activeTab[0].toUpperCase() + activeTab.slice(1))}</strong></div><div className="top-actions"><span className="demo-pill"><i /> Demo mode</span><button className="icon-button notification-button" aria-label="Notifications" onClick={() => { setActiveTab("overview"); document.getElementById("approvals")?.scrollIntoView({ behavior: "smooth" }); }}>♧{snapshot?.pending.length ? <i className="notification-dot" /> : null}</button><Avatar person={snapshot?.me} small /></div></header>
+      <div className="page-content">
+        {error && <div className="alert-banner" role="alert"><span>ⓘ {error}</span><button onClick={() => void refresh()}>Try again</button></div>}
+        <div className="page-heading"><div><div className="eyebrow">WEDNESDAY, NOVEMBER 18, 2026 <span className="eyebrow-star">✦</span></div><h1>{chosenGroup ? chosenGroup.name : title}</h1><p>{chosenGroup ? "Your group, all caught up in one place." : description}</p></div><div className="heading-actions"><button className="button button-secondary" onClick={() => setModal({ kind: "payment" })}><span className="button-symbol">↗</span> Record payment</button><button className="button button-primary" onClick={() => setModal({ kind: "expense" })}><span className="button-symbol">＋</span> Add expense</button></div></div>
+        {loading && !snapshot ? <LoadingState /> : !snapshot ? <EmptyState message="Your demo dashboard is waiting for its data." action="Reload dashboard" onAction={() => void refresh()} /> : chosenGroup ? <GroupDetail group={chosenGroup} onPay={() => setModal({ kind: "payment", groupId: chosenGroup.id })} onExpense={() => setModal({ kind: "expense" })} /> : activeTab === "groups" ? <GroupsView groups={snapshot.groups} onSelect={(id) => setSelectedGroup(id)} /> : activeTab === "activity" ? <ActivityView activities={snapshot.activities} /> : activeTab === "reports" ? <ReportView snapshot={snapshot} start={start} end={end} setStart={setStart} setEnd={setEnd} onApply={() => setReportFilter({ start, end })} /> : <Overview snapshot={snapshot} onReview={(expense) => setModal({ kind: "review", expense })} onGroup={(id) => { setSelectedGroup(id); setActiveTab("groups"); }} onActivity={() => setActiveTab("activity")} />}
+        <footer className="page-footer"><span>Made for the good times and the shared receipts.</span><span><span className="footer-heart">♥</span> SplitSmart <span className="footer-dot">·</span> Prototype v0.1</span></footer>
+      </div>
+    </section>
+    {modal && snapshot && <ModalLayer modal={modal} snapshot={snapshot} busy={busy} onClose={() => setModal(null)} onSubmit={submit} onReview={review} />}
+    <nav className="mobile-nav" aria-label="Mobile navigation"><NavItem icon="⌂" label="Home" active={activeTab === "overview"} onClick={() => { setSelectedGroup(null); setActiveTab("overview"); }} /><NavItem icon="◫" label="Groups" active={activeTab === "groups"} onClick={() => { setSelectedGroup(null); setActiveTab("groups"); }} /><NavItem icon="＋" label="Add" active={false} onClick={() => setModal({ kind: "expense" })} /><NavItem icon="↗" label="Activity" active={activeTab === "activity"} onClick={() => { setSelectedGroup(null); setActiveTab("activity"); }} /><NavItem icon="▤" label="Reports" active={activeTab === "reports"} onClick={() => { setSelectedGroup(null); setActiveTab("reports"); }} /></nav>
+  </main>;
 }
+
+function NavItem({ icon, label, active, onClick }: { icon: string; label: string; active: boolean; onClick: () => void }) { return <button className={`nav-item ${active ? "active" : ""}`} onClick={onClick}><span className="nav-icon">{icon}</span><span>{label}</span></button>; }
+function Avatar({ person, small = false }: { person?: Person; small?: boolean }) { return <span className={`avatar ${person?.color ?? "mint"} ${small ? "avatar-small" : ""}`}>{person?.initials ?? "…"}</span>; }
+function LoadingState() { return <div className="loading-card"><span className="loading-spinner" /><span>Getting your shared world in order…</span></div>; }
+function EmptyState({ message, action, onAction }: { message: string; action: string; onAction?: () => void }) { return <div className="empty-state"><span className="empty-icon">✳</span><h3>Nothing to see just yet</h3><p>{message}</p>{onAction && <button className="button button-secondary" onClick={onAction}>{action}</button>}</div>; }
+
+function Overview({ snapshot, onReview, onGroup, onActivity }: { snapshot: Snapshot; onReview: (expense: Expense) => void; onGroup: (id: string) => void; onActivity: () => void }) {
+  const owed = snapshot.groups.reduce((sum, group) => sum + group.myOwed, 0);
+  const owing = snapshot.groups.reduce((sum, group) => sum + group.myOwing, 0);
+  const activeGroups = snapshot.groups.filter((group) => group.expenses.some((item) => item.status === "APPROVED"));
+  return <>
+    <div className="stats-grid"><StatCard title="YOU ARE OWED" amount={money(owed)} symbol="↙" tone="positive" detail="Across all groups" /><StatCard title="YOU OWE" amount={money(owing)} symbol="↗" tone="neutral" detail="Across all groups" /><StatCard title="YOUR GROUPS" amount={String(snapshot.groups.length).padStart(2, "0")} symbol="◫" tone="lavender-tone" detail="All in good company" /><StatCard title="THIS MONTH" amount={money(snapshot.report.totalExpensesCents)} symbol="✳" tone="peach-tone" detail={`${snapshot.report.count} shared expenses`} /></div>
+    <div className="dashboard-grid"><div className="panel activity-panel"><PanelHeading title="Recent activity" subtitle="The latest from your groups" action="See all" onAction={onActivity} /><div className="activity-list">{snapshot.activities.slice(0, 5).map((activity) => <ActivityRow activity={activity} key={`${activity.kind}-${activity.id}`} />)}{!snapshot.activities.length && <EmptyInline text="No activity yet. Add your first shared expense." />}</div></div>
+      <div className="panel approval-panel" id="approvals"><PanelHeading title="Needs a little love" subtitle="Expenses waiting on your review" badge={snapshot.pending.length} /><div className="approval-list">{snapshot.pending.slice(0, 3).map((expense) => <div className="approval-item" key={expense.id}><div className="approval-top"><Avatar person={expense.payer} /><div className="approval-copy"><strong>{expense.payer.name.split(" ")[0]} added an expense</strong><span>{shortDate(expense.date)}</span></div><span className="approval-amount">{money(expense.amountCents)}</span></div><div className="approval-expense">{expense.description}</div><button className="review-button" onClick={() => onReview(expense)}>Review expense <span>→</span></button></div>)}{!snapshot.pending.length && <div className="all-clear"><span>✓</span><strong>All caught up</strong><p>No expenses need your review.</p></div>}</div><div className="demo-caption">Approvals are simulated for this prototype.</div></div></div>
+    <section className="groups-section"><PanelHeading title="Your groups" subtitle="A little world you share together" action="All groups" onAction={() => onGroup(activeGroups[0]?.id ?? snapshot.groups[0]?.id)} /><div className="group-cards">{snapshot.groups.map((group) => <GroupCard group={group} key={group.id} onClick={() => onGroup(group.id)} />)}<button className="new-group-card" onClick={() => onGroup(snapshot.groups[0]?.id ?? "")}><span className="new-group-plus">＋</span><strong>Start a new group</strong><span>For your next shared adventure</span></button></div></section>
+  </>;
+}
+function StatCard({ title, amount, symbol, tone, detail }: { title: string; amount: string; symbol: string; tone: string; detail: string }) { return <div className="stat-card"><div className="stat-top"><span>{title}</span><span className={`stat-symbol ${tone}`}>{symbol}</span></div><strong className="stat-amount">{amount}</strong><span className="stat-detail">{detail}</span></div>; }
+function PanelHeading({ title, subtitle, action, onAction, badge }: { title: string; subtitle: string; action?: string; onAction?: () => void; badge?: number }) { return <div className="panel-heading"><div><div className="panel-title-line"><h2>{title}</h2>{badge !== undefined && badge > 0 && <span className="count-badge">{badge}</span>}</div><p>{subtitle}</p></div>{action && <button className="text-action" onClick={onAction}>{action} <span>→</span></button>}</div>; }
+function ActivityRow({ activity }: { activity: Activity }) { const payment = activity.kind === "payment"; return <div className="activity-row"><span className={`activity-type ${payment ? "payment-type" : activity.status === "PENDING" ? "pending-type" : "expense-type"}`}>{payment ? "↗" : activity.status === "PENDING" ? "◷" : "↙"}</span><Avatar person={activity.person} /><div className="activity-copy"><strong>{activity.description}</strong><span>{activity.groupEmoji} {activity.groupName} <i>·</i> {shortDate(activity.date)}</span></div><div className="activity-amount"><strong>{money(activity.amountCents)}</strong><span>{payment ? "payment" : activity.status === "PENDING" ? "awaiting review" : "expense"}</span></div></div>; }
+function GroupCard({ group, onClick }: { group: Group; onClick: () => void }) { const net = group.myOwed - group.myOwing; return <button className={`group-card ${group.accent}`} onClick={onClick}><div className="group-card-top"><span className="group-emoji">{group.emoji}</span><span className="card-arrow">↗</span></div><strong>{group.name}</strong><span className="group-member-count">{group.members.length} members <i>·</i> {group.expenses.filter((item) => item.status === "APPROVED").length} expenses</span><div className="group-card-bottom"><span className="member-stack">{group.members.slice(0, 4).map((person) => <Avatar person={person} small key={person.id} />)}</span><span className={`group-net ${net < 0 ? "owes" : "owed"}`}>{net < 0 ? "You owe " : "You’re owed "}<strong>{money(Math.abs(net))}</strong></span></div></button>; }
+function EmptyInline({ text }: { text: string }) { return <div className="empty-inline">{text}</div>; }
+
+function GroupsView({ groups, onSelect }: { groups: Group[]; onSelect: (id: string) => void }) { return <section className="view-section"><div className="group-cards group-cards-large">{groups.map((group) => <GroupCard group={group} key={group.id} onClick={() => onSelect(group.id)} />)}</div>{!groups.length && <EmptyState message="Your groups will appear here." action="" />}</section>; }
+function GroupDetail({ group, onPay, onExpense }: { group: Group; onPay: () => void; onExpense: () => void }) { const total = group.expenses.filter((item) => item.status === "APPROVED").reduce((sum, item) => sum + item.amountCents, 0); return <div className="group-detail-layout"><div className="group-detail-main"><div className="group-hero panel"><div className="group-hero-icon">{group.emoji}</div><div className="group-hero-copy"><span className="eyebrow">YOUR SHARED SPACE</span><h2>{group.name}</h2><p>{group.members.length} lovely people keeping things fair.</p></div><div className="group-hero-actions"><button className="button button-secondary" onClick={onPay}>↗ Settle up</button><button className="button button-primary" onClick={onExpense}>＋ Add expense</button></div></div><div className="panel group-expenses-panel"><PanelHeading title="Expenses" subtitle={`${group.expenses.length} entries in this group`} /><div className="table-wrap"><table><thead><tr><th>DESCRIPTION</th><th>PAID BY</th><th>DATE</th><th>STATUS</th><th className="align-right">AMOUNT</th></tr></thead><tbody>{group.expenses.map((expense) => <tr key={expense.id}><td><strong>{expense.description}</strong><span className="table-sub">{expense.splitType === "EQUAL" ? "Equal split" : "By percentage"}</span></td><td><span className="table-person"><Avatar person={expense.payer} small />{expense.payer.name.split(" ")[0]}</span></td><td>{shortDate(expense.date)}</td><td><span className={`status-pill ${expense.status.toLowerCase()}`}>{expense.status === "PENDING" ? "Needs review" : expense.status === "REJECTED" ? "Rejected" : "Approved"}</span></td><td className="align-right"><strong>{money(expense.amountCents)}</strong></td></tr>)}</tbody></table>{!group.expenses.length && <EmptyInline text="No expenses here yet. Add one to get things going." />}</div><div className="group-total"><span>Approved shared spending</span><strong>{money(total)}</strong></div></div></div><div className="group-detail-side"><div className="panel members-panel"><PanelHeading title="The people" subtitle="Your group members" />{group.members.map((person) => <div className="member-row" key={person.id}><Avatar person={person} /><span>{person.name}</span><span className="member-you">{person.id === group.members.find((x) => x.name === "Alex Morgan")?.id ? "YOU" : ""}</span></div>)}</div><div className="panel balances-panel"><PanelHeading title="Who owes whom" subtitle="After payments and shared expenses" />{group.balances.map((balance, index) => <div className="balance-row" key={`${balance.from.id}-${balance.to.id}-${index}`}><Avatar person={balance.from} small /><span>{balance.from.name.split(" ")[0]} owes {balance.to.name.split(" ")[0]}</span><strong>{money(balance.amountCents)}</strong></div>)}{!group.balances.length && <div className="all-clear"><span>✓</span><strong>All settled up</strong><p>Everyone is square.</p></div>}</div></div></div>; }
+function ActivityView({ activities }: { activities: Activity[] }) { return <div className="panel full-list-panel"><PanelHeading title="Everything in one place" subtitle="Your latest shared expenses and payments" /><div className="activity-list">{activities.map((activity) => <ActivityRow activity={activity} key={`${activity.kind}-${activity.id}`} />)}{!activities.length && <EmptyInline text="No activity just yet." />}</div></div>; }
+function ReportView({ snapshot, start, end, setStart, setEnd, onApply }: { snapshot: Snapshot; start: string; end: string; setStart: (value: string) => void; setEnd: (value: string) => void; onApply: () => void }) { const report = snapshot.report; return <div className="report-view"><div className="report-filter panel"><div><span className="eyebrow">A LITTLE LOOK BACK</span><h2>Pick your dates</h2><p>See approved expenses and recorded payments in a date range.</p></div><div className="filter-controls"><label>FROM<input type="date" value={start} onChange={(event) => setStart(event.target.value)} /></label><span className="filter-to">to</span><label>UNTIL<input type="date" value={end} onChange={(event) => setEnd(event.target.value)} /></label><button className="button button-primary" onClick={onApply}>Update report</button></div></div><div className="stats-grid report-stats"><StatCard title="SHARED SPENDING" amount={money(report.totalExpensesCents)} symbol="↙" tone="positive" detail={`${report.count} approved expenses`} /><StatCard title="PAYMENTS RECORDED" amount={money(report.totalPaymentsCents)} symbol="↗" tone="lavender-tone" detail={`${report.payments.length} payments`} /><StatCard title="GROUPS INCLUDED" amount={String(new Set([...report.expenses.map((item) => item.group?.name), ...report.payments.map((item) => item.group?.name)]).size).padStart(2, "0")} symbol="◫" tone="peach-tone" detail="In this date range" /><StatCard title="YOUR NET BALANCE" amount={money(snapshot.groups.reduce((sum, group) => sum + group.myOwed - group.myOwing, 0))} symbol="✳" tone="neutral" detail="Across all groups" /></div><div className="panel report-details"><PanelHeading title="Report details" subtitle={`Activity from ${shortDate(`${start}T12:00:00`)} to ${shortDate(`${end}T12:00:00`)}`} /><div className="table-wrap"><table><thead><tr><th>ITEM</th><th>GROUP</th><th>DATE</th><th className="align-right">AMOUNT</th></tr></thead><tbody>{[...report.expenses.map((item) => ({ id: item.id, description: item.description, group: item.group?.name ?? "Group", date: item.date, amountCents: item.amountCents, type: "Expense" })), ...report.payments.map((item) => ({ id: item.id, description: item.note || "Payment", group: item.group?.name ?? "Group", date: item.date, amountCents: item.amountCents, type: "Payment" }))].sort((a, b) => +new Date(b.date) - +new Date(a.date)).map((item) => <tr key={item.id}><td><strong>{item.description}</strong><span className="table-sub">{item.type}</span></td><td>{item.group}</td><td>{shortDate(item.date)}</td><td className="align-right"><strong>{money(item.amountCents)}</strong></td></tr>)}</tbody></table>{!report.expenses.length && !report.payments.length && <EmptyInline text="No shared activity in this date range. Try adjusting your dates." />}</div></div><p className="report-disclaimer">Reports reflect the activity entered into this demo. Recorded payments are not connected to a bank.</p></div>; }
+
+function ModalLayer({ modal, snapshot, busy, onClose, onSubmit, onReview }: { modal: Exclude<Modal, null>; snapshot: Snapshot; busy: boolean; onClose: () => void; onSubmit: (action: string, data: Record<string, unknown>) => Promise<void>; onReview: (id: string, status: string) => Promise<void> }) {
+  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><section className="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button className="modal-close" aria-label="Close" onClick={onClose}>×</button>{modal.kind === "expense" ? <ExpenseForm snapshot={snapshot} busy={busy} onSubmit={onSubmit} /> : modal.kind === "payment" ? <PaymentForm snapshot={snapshot} groupId={modal.groupId} busy={busy} onSubmit={onSubmit} /> : <ReviewForm expense={modal.expense} busy={busy} onReview={onReview} />}</section></div>;
+}
+function ExpenseForm({ snapshot, busy, onSubmit }: { snapshot: Snapshot; busy: boolean; onSubmit: (action: string, data: Record<string, unknown>) => Promise<void> }) {
+  const [groupId, setGroupId] = useState(snapshot.groups[0]?.id ?? "");
+  const group = snapshot.groups.find((item) => item.id === groupId);
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(today());
+  const [payerId, setPayerId] = useState(snapshot.me.id);
+  const [splitType, setSplitType] = useState("EQUAL");
+  const [participants, setParticipants] = useState<string[]>([]);
+  const [percentages, setPercentages] = useState<Record<string, string>>({});
+  const [validation, setValidation] = useState("");
+  useEffect(() => { if (group) { setParticipants(group.members.map((member) => member.id)); setPercentages(Object.fromEntries(group.members.map((member) => [member.id, String(Math.floor(100 / group.members.length))]))); if (!group.members.some((member) => member.id === payerId)) setPayerId(group.members[0]?.id ?? ""); } }, [group, groupId, payerId]);
+  const equalShare = Number(amount) > 0 && participants.length ? (Number(amount) / participants.length).toLocaleString("en-US", { style: "currency", currency: "USD" }) : "$0.00";
+  const percentageTotal = participants.reduce((sum, id) => sum + (Number(percentages[id]) || 0), 0);
+  const toggle = (id: string) => setParticipants((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  const submit = async (event: FormEvent) => { event.preventDefault(); setValidation(""); if (!group || !participants.length) { setValidation("Choose at least one participant."); return; } if (splitType === "PERCENTAGE" && Math.abs(percentageTotal - 100) > 0.001) { setValidation("Percentages must add up to exactly 100%."); return; } try { await onSubmit("expense", { groupId, description, amount, date, payerId, splitType, participants: participants.map((id) => ({ id, ...(splitType === "PERCENTAGE" ? { percentage: Number(percentages[id]) || 0 } : {}) })) }); } catch (reason) { setValidation(displayError(reason)); } };
+  return <form onSubmit={submit}><span className="modal-kicker">A LITTLE SOMETHING SHARED</span><h2 id="modal-title">Add an expense</h2><p className="modal-intro">We’ll keep everyone’s share fair and square.</p><div className="form-grid"><label className="field full-field">What was it for?<input autoFocus placeholder="e.g. Sunday groceries" maxLength={80} value={description} onChange={(event) => setDescription(event.target.value)} required /></label><label className="field">Amount<input type="number" min="0.01" max="1000000" step="0.01" placeholder="0.00" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label><label className="field">Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label><label className="field full-field">Group<select value={groupId} onChange={(event) => setGroupId(event.target.value)}>{snapshot.groups.map((item) => <option value={item.id} key={item.id}>{item.emoji} {item.name}</option>)}</select></label><label className="field full-field">Paid by<select value={payerId} onChange={(event) => setPayerId(event.target.value)}>{group?.members.map((person) => <option value={person.id} key={person.id}>{person.name}{person.id === snapshot.me.id ? " (you)" : ""}</option>)}</select></label><div className="field full-field"><span className="field-label">Split how?</span><div className="segmented-control"><button type="button" className={splitType === "EQUAL" ? "chosen" : ""} onClick={() => setSplitType("EQUAL")}>Equally</button><button type="button" className={splitType === "PERCENTAGE" ? "chosen" : ""} onClick={() => setSplitType("PERCENTAGE")}>By percentage</button></div></div><div className="field full-field"><div className="participants-heading"><span className="field-label">Who was part of it?</span><span>{participants.length} selected</span></div><div className="participant-list">{group?.members.map((person) => { const selected = participants.includes(person.id); return <div className={`participant-row ${selected ? "participant-selected" : ""}`} key={person.id}><button type="button" className={`participant-check ${selected ? "checked" : ""}`} onClick={() => toggle(person.id)} aria-label={`${selected ? "Remove" : "Add"} ${person.name}`}>{selected ? "✓" : ""}</button><Avatar person={person} small /><span>{person.name}{person.id === snapshot.me.id ? " (you)" : ""}</span>{splitType === "PERCENTAGE" && selected ? <span className="percentage-entry"><input aria-label={`${person.name} percentage`} type="number" min="0" max="100" step="0.1" value={percentages[person.id] ?? "0"} onChange={(event) => setPercentages({ ...percentages, [person.id]: event.target.value })} />%</span> : selected ? <span className="participant-share">{equalShare}</span> : null}</div>; })}</div>{splitType === "PERCENTAGE" && <div className={`percentage-total ${Math.abs(percentageTotal - 100) < 0.001 ? "valid" : ""}`}>Total <strong>{percentageTotal.toFixed(1)}%</strong> <span>{Math.abs(percentageTotal - 100) < 0.001 ? "✓ Looks good" : "· Needs to add up to 100%"}</span></div>}</div></div><div className="prototype-inline-note">✦ This expense will wait for group review before affecting balances.</div>{validation && <div className="form-error" role="alert">{validation}</div>}<div className="modal-actions"><button type="button" className="button button-secondary" onClick={() => window.dispatchEvent(new Event("close-modal"))} style={{ display: "none" }}>Cancel</button><button type="submit" className="button button-primary button-wide" disabled={busy}>{busy ? <><span className="button-spinner" /> Saving…</> : "Save expense for review"}</button></div></form>;
+}
+function PaymentForm({ snapshot, groupId, busy, onSubmit }: { snapshot: Snapshot; groupId?: string; busy: boolean; onSubmit: (action: string, data: Record<string, unknown>) => Promise<void> }) {
+  const [selectedGroup, setSelectedGroup] = useState(groupId ?? snapshot.groups[0]?.id ?? "");
+  const group = snapshot.groups.find((item) => item.id === selectedGroup);
+  const [payerId, setPayerId] = useState(snapshot.me.id);
+  const [payeeId, setPayeeId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(today());
+  const [note, setNote] = useState("");
+  const [validation, setValidation] = useState("");
+  useEffect(() => { const balance = group?.balances.find((item) => item.from.id === snapshot.me.id); if (balance) { setPayerId(balance.from.id); setPayeeId(balance.to.id); setAmount((balance.amountCents / 100).toFixed(2)); } else { setPayeeId(group?.members.find((person) => person.id !== snapshot.me.id)?.id ?? ""); } }, [group, selectedGroup, snapshot.me.id]);
+  const submit = async (event: FormEvent) => { event.preventDefault(); setValidation(""); try { await onSubmit("payment", { groupId: selectedGroup, payerId, payeeId, amount, date, note }); } catch (reason) { setValidation(displayError(reason)); } };
+  return <form onSubmit={submit}><span className="modal-kicker">A LITTLE LESS IOU</span><h2 id="modal-title">Record a payment</h2><p className="modal-intro">Just a note of what’s been settled between you.</p><div className="payment-prototype-callout"><span>✦</span><p><strong>Demo behavior.</strong> This records a payment in SplitSmart only. Nothing is sent to a bank or payment service.</p></div><div className="form-grid"><label className="field full-field">Group<select value={selectedGroup} onChange={(event) => setSelectedGroup(event.target.value)}>{snapshot.groups.map((item) => <option value={item.id} key={item.id}>{item.emoji} {item.name}</option>)}</select></label><label className="field">Paid by<select value={payerId} onChange={(event) => setPayerId(event.target.value)}>{group?.members.map((person) => <option key={person.id} value={person.id}>{person.name}{person.id === snapshot.me.id ? " (you)" : ""}</option>)}</select></label><label className="field">Paid to<select value={payeeId} onChange={(event) => setPayeeId(event.target.value)}>{group?.members.filter((person) => person.id !== payerId).map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}</select></label><label className="field">Amount<input type="number" min="0.01" max="1000000" step="0.01" placeholder="0.00" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label><label className="field">Date<input type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label><label className="field full-field">Note (optional)<input placeholder="e.g. Settled up for groceries" value={note} onChange={(event) => setNote(event.target.value)} maxLength={80} /></label></div>{validation && <div className="form-error" role="alert">{validation}</div>}<div className="modal-actions"><button type="submit" className="button button-primary button-wide" disabled={busy}>{busy ? "Saving…" : "Record payment"}</button></div></form>;
+}
+function ReviewForm({ expense, busy, onReview }: { expense: Expense; busy: boolean; onReview: (id: string, status: string) => Promise<void> }) { return <div><span className="modal-kicker">A QUICK LOOK TOGETHER</span><h2 id="modal-title">Review this expense</h2><p className="modal-intro">Confirm everything looks right before it joins the group balance.</p><div className="review-receipt"><div><span>DESCRIPTION</span><strong>{expense.description}</strong></div><div><span>ADDED BY</span><strong>{expense.payer.name}</strong></div><div><span>DATE</span><strong>{shortDate(expense.date)}</strong></div><div><span>SPLIT</span><strong>{expense.splitType === "EQUAL" ? "Split equally" : "By percentage"}</strong></div><div className="receipt-total"><span>TOTAL</span><strong>{money(expense.amountCents)}</strong></div></div>{expense.shares && <div className="review-shares"><span className="field-label">Everyone’s share</span>{expense.shares.map((share) => <div key={share.user.id}><span><Avatar person={share.user} small /> {share.user.name}</span><strong>{money(share.amountCents)}</strong></div>)}</div>}<div className="modal-actions review-actions"><button className="button button-reject" onClick={() => void onReview(expense.id, "REJECTED")} disabled={busy}>Reject</button><button className="button button-primary button-wide" onClick={() => void onReview(expense.id, "APPROVED")} disabled={busy}>{busy ? "Saving…" : "Approve expense"}</button></div><p className="review-prototype-note">Approvals are part of this prototype demo.</p></div>; }

@@ -1,36 +1,33 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SplitSmart prototype
 
-## Getting Started
+A responsive expense-sharing demo built with the existing Next.js 15, React 19, TypeScript, Prisma 6, and SQLite setup. Data access stays in Next.js server routes. Amounts are persisted as integer cents; this prototype uses a seeded demo account rather than production authentication. Payment entry records a ledger event locally and does not contact a bank or payment provider.
 
-First, run the development server:
+## First-time setup
+
+From this directory:
 
 ```bash
+cp .env.example .env
+npm install
+npm run db:setup
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). `db:setup` applies a Prisma migration and runs an idempotent seed. It adds or updates the known demo records and does not delete or reset the SQLite database. SQLite is stored at `prisma/dev.db` with the example URL. To seed again after setup, run `npm run db:seed`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`npm run db:migrate` applies checked-in SQL migrations that have not run yet. The setup runner records applied migrations in Prisma’s migration table and is safe to rerun.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+If the schema changes later, create and apply a migration with `npx prisma migrate dev --name describe_change`, then run `npm run db:seed` if demo records need updating.
 
-## Learn More
+## Checks
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run lint
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Demo walkthrough
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Use the Overview for balances, recent activity, and pending approvals. Open a group to inspect its members, expenses, and who owes whom. Add an expense with an equal or percentage split; percentage shares must total 100%. New expenses wait for review. Approve or reject them from the dashboard. Record a payment to update the group balance, then open Reports to filter approved expenses and recorded payments by date.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The demo workspace is represented by Alex Morgan (`alex@splitsmart.demo`). There is no login screen, external notification service, receipt upload, or external payment processing in this prototype.

@@ -7,8 +7,79 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model EnvironmentCheck {
-  id        Int      @id @default(autoincrement())
-  message   String
+model User {
+  id          String       @id @default(cuid())
+  name        String
+  email       String       @unique
+  initials    String
+  color       String       @default("mint")
+  memberships Membership[]
+  expenses    Expense[]    @relation("PaidExpenses")
+  shares      ExpenseShare[]
+  paymentsOut Payment[]    @relation("Payer")
+  paymentsIn  Payment[]    @relation("Payee")
+  createdAt   DateTime     @default(now())
+}
+
+model Group {
+  id          String       @id @default(cuid())
+  name        String
+  emoji       String       @default("🏡")
+  accent      String       @default("mint")
+  createdAt   DateTime     @default(now())
+  memberships Membership[]
+  expenses    Expense[]
+  payments    Payment[]
+}
+
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  groupId   String
+  role      String   @default("member")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+  @@unique([userId, groupId])
+}
+
+model Expense {
+  id          String         @id @default(cuid())
+  groupId     String
+  payerId     String
+  description String
+  amountCents Int
+  date        DateTime
+  splitType   String
+  status      String         @default("APPROVED")
+  note        String?
+  createdAt   DateTime       @default(now())
+  group       Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  payer       User           @relation("PaidExpenses", fields: [payerId], references: [id])
+  shares      ExpenseShare[]
+}
+
+model ExpenseShare {
+  id          String  @id @default(cuid())
+  expenseId   String
+  userId      String
+  amountCents Int
+  percentage  Float?
+  expense     Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user        User    @relation(fields: [userId], references: [id])
+  @@unique([expenseId, userId])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  groupId     String
+  payerId     String
+  payeeId     String
+  amountCents Int
+  date        DateTime
+  note        String?
+  createdAt   DateTime @default(now())
+  group       Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  payer       User     @relation("Payer", fields: [payerId], references: [id])
+  payee       User     @relation("Payee", fields: [payeeId], references: [id])
 }
