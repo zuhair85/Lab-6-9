@@ -1,0 +1,79 @@
+@startuml SplitSmartDomainModel
+hide methods
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam linetype ortho
+skinparam class {
+  BackgroundColor #FBFCF9
+  BorderColor #78947F
+  ArrowColor #688471
+}
+
+class User {
+  id: String <<PK>>
+  name: String
+  email: String <<unique>>
+  initials: String
+  color: String
+}
+
+class Group {
+  id: String <<PK>>
+  name: String
+  emoji: String
+  accent: String
+}
+
+class Membership {
+  id: String <<PK>>
+  userId: String <<FK>>
+  groupId: String <<FK>>
+  role: String
+  {unique} userId + groupId
+}
+
+class Expense {
+  id: String <<PK>>
+  groupId: String <<FK>>
+  payerId: String <<FK>>
+  description: String
+  amountCents: Int
+  date: DateTime
+  splitType: EQUAL | PERCENTAGE
+  status: PENDING | APPROVED | REJECTED
+}
+
+class ExpenseShare {
+  id: String <<PK>>
+  expenseId: String <<FK>>
+  userId: String <<FK>>
+  amountCents: Int
+  percentage: Float?
+  {unique} expenseId + userId
+}
+
+class Payment {
+  id: String <<PK>>
+  groupId: String <<FK>>
+  payerId: String <<FK>>
+  payeeId: String <<FK>>
+  amountCents: Int
+  date: DateTime
+  note: String?
+}
+
+User "1" -- "0..*" Membership
+Group "1" -- "0..*" Membership
+Group "1" -- "0..*" Expense
+User "1" -- "0..*" Expense : pays
+Expense "1" *-- "1..*" ExpenseShare : splits into
+User "1" -- "0..*" ExpenseShare : participates
+Group "1" -- "0..*" Payment
+User "1" -- "0..*" Payment : pays
+User "1" -- "0..*" Payment : receives
+
+note bottom of Expense
+  Balances include APPROVED expenses only.
+  Amounts and shares are integer cents.
+end note
+@enduml

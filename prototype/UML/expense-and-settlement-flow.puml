@@ -1,0 +1,56 @@
+@startuml SplitSmartExpenseAndSettlement
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor #FBFCF9
+  BorderColor #78947F
+  ArrowColor #688471
+  DiamondBackgroundColor #F1F5EF
+  DiamondBorderColor #78947F
+}
+
+|Demo user|
+start
+:Open Add expense;
+:Choose group, payer, date,
+description and participants;
+if (Split equally?) then (yes)
+  :Calculate equal shares;
+  :Round shares to cents;
+  :Give remainder to final participant;
+else (percentage)
+  :Enter participant percentages;
+  if (Percentages total 100%?) then (yes)
+    :Calculate percentage shares;
+    :Adjust final share for rounding;
+  else (no)
+    :Show validation error;
+    stop
+  endif
+endif
+:Save expense for review;
+
+|Next.js server|
+:Validate amount and group membership;
+:Persist expense + shares as PENDING;
+
+|Reviewer|
+:Review expense details and shares;
+if (Approve?) then (yes)
+  |Next.js server|
+  :Set status APPROVED;
+  :Include expense in balance calculation;
+else (reject)
+  |Next.js server|
+  :Set status REJECTED;
+  :Exclude expense from balances;
+endif
+
+|Demo user|
+:Record a payment between group members;
+|Next.js server|
+:Validate and persist payment;
+:Recalculate group balances;
+|Demo user|
+:View updated balances and date-filtered report;
+stop
+@enduml

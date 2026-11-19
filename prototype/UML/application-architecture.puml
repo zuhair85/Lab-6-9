@@ -1,0 +1,50 @@
+@startuml SplitSmartPrototypeArchitecture
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam linetype ortho
+skinparam component {
+  BackgroundColor #FBFCF9
+  BorderColor #78947F
+  ArrowColor #688471
+}
+
+actor "Demo user\n(Alex)" as User
+
+package "Browser · Next.js UI" {
+  [Responsive dashboard] as UI
+  [Expense / payment /\napproval forms] as Forms
+  [Group and report views] as Views
+}
+
+package "Next.js server" {
+  [Dashboard API\nGET snapshot + report\nPOST expense/payment/review] as API
+  [Validation + split arithmetic] as Logic
+  [Balance ledger calculation] as Ledger
+  [Prisma Client\nserver-only] as Prisma
+}
+
+database "SQLite\nprisma/dev.db" as DB
+
+User --> UI
+UI --> Forms
+UI --> Views
+UI --> API : fetch JSON
+API --> Logic
+API --> Ledger
+API --> Prisma
+Prisma --> DB : Prisma ORM
+
+note right of DB
+  Persisted values:
+  • users and group membership
+  • expenses and per-person shares
+  • payment records
+  • approval status
+end note
+
+note bottom of API
+  Prototype uses one seeded demo identity.
+  No production authentication, notifications,
+  or external payment integration.
+end note
+@enduml
